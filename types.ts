@@ -28,7 +28,7 @@ export enum SkillType {
   PASSIVE = 'PASSIVE' // Stat boost
 }
 
-export type VisualType = 'DEFAULT' | 'BLADE' | 'ORB' | 'SPEAR' | 'FIRE' | 'METEOR' | 'WAVE' | 'LIGHTNING_SPARK';
+export type VisualType = 'DEFAULT' | 'BLADE' | 'ORB' | 'SPEAR' | 'FIRE' | 'METEOR' | 'WAVE' | 'LIGHTNING_SPARK' | 'ICE' | 'DAGGER' | 'POISON' | 'TOTEM';
 
 export interface Vector {
   x: number;
@@ -73,13 +73,16 @@ export interface Entity {
   
   // Active Status
   invulnerableUntil: number;
+  frozenUntil?: number; // New status effect
   shield: number;
   maxShield: number;
+  isStatic?: boolean; // For turrets/totems
 
   name?: string;
   targetId?: string | null; 
   ownerId?: string; // For Pets/Bullets
   lastCombatTime: number; 
+  lifeTime?: number; // For temporary entities like Totems
 
   // Skill System
   skills: { [key: string]: number }; // Skill ID -> Level
@@ -110,6 +113,7 @@ export interface Bullet extends Entity {
 
   isMine?: boolean; // Stationary, explodes on contact
   isWave?: boolean; // Passes through walls/enemies?
+  isPool?: boolean; // For poison pools
   
   // New Skill Behaviors
   chainRemaining?: number; // For Lightning

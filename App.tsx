@@ -43,18 +43,25 @@ export default function App() {
     setScreen('GAME_OVER');
   };
 
+  const handleBackToMenu = () => {
+    setGameResult(null);
+    setIsPaused(false);
+    setShowLevelUp(false);
+    setScreen('MENU');
+  };
+
   const toggleLanguage = () => {
     setLang(prev => prev === 'en' ? 'zh' : 'en');
   };
 
   return (
-    <div className="w-full h-screen bg-[#0f172a] text-white font-['Exo_2'] overflow-hidden select-none">
+    <div className="relative w-full h-screen bg-[#0f172a] text-white font-['Exo_2'] overflow-hidden select-none">
       
       {/* LANGUAGE TOGGLE */}
-      <div className="absolute top-6 right-6 z-50">
+      <div className="absolute top-6 right-6 z-[60]">
         <button 
           onClick={toggleLanguage}
-          className="bg-slate-800/80 hover:bg-slate-700 backdrop-blur-md text-cyan-400 border border-slate-600 px-4 py-2 rounded-full flex items-center gap-2 text-sm font-bold shadow-lg transition-all hover:scale-105"
+          className="bg-slate-800/80 hover:bg-slate-700 backdrop-blur-md text-cyan-400 border border-slate-600 px-4 py-2 rounded-full flex items-center gap-2 text-sm font-bold shadow-lg transition-all hover:scale-105 cursor-pointer"
         >
           <Globe size={16} />
           {lang === 'en' ? '中文' : 'English'}
@@ -63,9 +70,9 @@ export default function App() {
 
       {/* MENU SCREEN */}
       {screen === 'MENU' && (
-        <div className="relative flex flex-col items-center justify-center h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-800 via-slate-950 to-black">
+        <div className="relative z-10 flex flex-col items-center justify-center h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-800 via-slate-950 to-black">
           
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(56,189,248,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,0.05)_1px,transparent_1px)] bg-[size:50px_50px] opacity-50"></div>
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(56,189,248,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,0.05)_1px,transparent_1px)] bg-[size:50px_50px] opacity-50 pointer-events-none"></div>
 
           <div className="relative z-10 bg-slate-900/60 p-12 rounded-3xl border border-slate-700 backdrop-blur-xl max-w-5xl w-full text-center shadow-2xl animate-in fade-in zoom-in duration-500">
             <h1 className="text-8xl font-black mb-2 italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-300 via-blue-500 to-indigo-600 drop-shadow-lg">
@@ -78,7 +85,7 @@ export default function App() {
                 <button
                   key={c}
                   onClick={() => setSelectedClass(c)}
-                  className={`group relative p-8 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center gap-6 overflow-hidden ${
+                  className={`group relative p-8 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center gap-6 overflow-hidden cursor-pointer ${
                     selectedClass === c 
                       ? 'border-cyan-400 bg-cyan-950/40 shadow-[0_0_30px_rgba(34,211,238,0.2)] scale-105 ring-1 ring-cyan-400/50' 
                       : 'border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:border-slate-600'
@@ -102,7 +109,7 @@ export default function App() {
 
             <button 
               onClick={startGame}
-              className="w-full py-6 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-3xl rounded-2xl shadow-[0_10px_40px_rgba(8,145,178,0.4)] transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-4 tracking-widest uppercase border-t border-cyan-400/30"
+              className="w-full py-6 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-3xl rounded-2xl shadow-[0_10px_40px_rgba(8,145,178,0.4)] transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-4 tracking-widest uppercase border-t border-cyan-400/30 cursor-pointer"
             >
               <Play fill="currentColor" size={32} /> {t.enterBattle}
             </button>
@@ -110,9 +117,9 @@ export default function App() {
         </div>
       )}
 
-      {/* GAME SCREEN */}
-      {screen === 'GAME' && (
-        <div className="relative w-full h-full">
+      {/* GAME SCREEN (Running or Paused in Background) */}
+      {(screen === 'GAME' || screen === 'GAME_OVER') && (
+        <div className="absolute inset-0 w-full h-full z-0">
            <GameCanvas 
              selectedClass={selectedClass} 
              onLevelUp={handleLevelUp}
@@ -124,7 +131,7 @@ export default function App() {
            
            {/* Level Up Modal */}
            {showLevelUp && (
-             <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+             <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                <div className="bg-slate-900 border-2 border-yellow-500/50 p-10 rounded-3xl max-w-6xl w-full mx-8 shadow-[0_0_100px_rgba(234,179,8,0.15)] relative overflow-hidden">
                  
                  <div className="absolute -top-20 -right-20 w-60 h-60 bg-yellow-500/20 blur-[100px] rounded-full pointer-events-none"></div>
@@ -136,7 +143,7 @@ export default function App() {
                      <button
                        key={upg.id}
                        onClick={() => handleSelectUpgrade(upg)}
-                       className="group relative p-8 bg-slate-800 border border-slate-700 rounded-2xl hover:border-yellow-400 hover:bg-slate-800/80 hover:-translate-y-2 transition-all duration-300 text-left flex flex-col h-full shadow-lg"
+                       className="group relative p-8 bg-slate-800 border border-slate-700 rounded-2xl hover:border-yellow-400 hover:bg-slate-800/80 hover:-translate-y-2 transition-all duration-300 text-left flex flex-col h-full shadow-lg cursor-pointer"
                      >
                        <div className="flex justify-between items-start mb-6">
                            <div className={`text-xs font-black px-3 py-1 rounded-md uppercase tracking-wider ${
@@ -161,50 +168,52 @@ export default function App() {
         </div>
       )}
 
-      {/* GAME OVER SCREEN */}
+      {/* GAME OVER SCREEN (Overlay) */}
       {screen === 'GAME_OVER' && (
-        <div className="flex flex-col items-center justify-center h-full bg-slate-950/90 z-50 backdrop-blur-md">
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-500">
           <div className="text-center p-20 rounded-[3rem] bg-slate-900 border border-slate-800 shadow-2xl animate-in zoom-in duration-300 max-w-3xl w-full relative overflow-hidden">
             
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02),transparent_70%)]"></div>
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02),transparent_70%)] pointer-events-none"></div>
 
-            {gameResult?.win ? (
-              <div className="relative inline-block mb-10">
-                  <div className="absolute inset-0 bg-yellow-500 blur-3xl opacity-30 animate-pulse"></div>
-                  <Crown size={120} className="text-yellow-400 relative z-10 drop-shadow-2xl" />
-              </div>
-            ) : (
-              <div className="relative inline-block mb-10">
-                  <div className="absolute inset-0 bg-red-600 blur-3xl opacity-30"></div>
-                  <Skull size={120} className="text-red-500 relative z-10 drop-shadow-2xl" />
-              </div>
-            )}
-            
-            <h1 className={`text-7xl font-black mb-6 uppercase tracking-tighter ${gameResult?.win ? 'text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600' : 'text-red-500'}`}>
-              {gameResult?.win ? t.victory : t.eliminated}
-            </h1>
-            
-            <p className="text-2xl text-slate-400 mb-12 font-medium">
-              {gameResult?.win ? t.victoryMsg : t.eliminatedMsg}
-            </p>
+            <div className="relative z-10">
+                {gameResult?.win ? (
+                <div className="relative inline-block mb-10">
+                    <div className="absolute inset-0 bg-yellow-500 blur-3xl opacity-30 animate-pulse"></div>
+                    <Crown size={120} className="text-yellow-400 relative z-10 drop-shadow-2xl" />
+                </div>
+                ) : (
+                <div className="relative inline-block mb-10">
+                    <div className="absolute inset-0 bg-red-600 blur-3xl opacity-30"></div>
+                    <Skull size={120} className="text-red-500 relative z-10 drop-shadow-2xl" />
+                </div>
+                )}
+                
+                <h1 className={`text-7xl font-black mb-6 uppercase tracking-tighter ${gameResult?.win ? 'text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600' : 'text-red-500'}`}>
+                {gameResult?.win ? t.victory : t.eliminated}
+                </h1>
+                
+                <p className="text-2xl text-slate-400 mb-12 font-medium">
+                {gameResult?.win ? t.victoryMsg : t.eliminatedMsg}
+                </p>
 
-            <div className="grid grid-cols-2 gap-8 text-left bg-slate-950 p-8 rounded-2xl border border-slate-800 mb-12">
-               <div className="flex flex-col items-center justify-center p-6 bg-slate-900/50 rounded-xl">
-                 <div className="text-slate-500 text-sm font-bold uppercase tracking-widest mb-2">{t.levelReached}</div>
-                 <div className="text-5xl font-black text-white">{gameResult?.stats?.level || 1}</div>
-               </div>
-               <div className="flex flex-col items-center justify-center p-6 bg-slate-900/50 rounded-xl">
-                 <div className="text-slate-500 text-sm font-bold uppercase tracking-widest mb-2">{t.zoneStatus}</div>
-                 <div className="text-3xl font-bold text-red-500 uppercase">{t.closed}</div>
-               </div>
+                <div className="grid grid-cols-2 gap-8 text-left bg-slate-950 p-8 rounded-2xl border border-slate-800 mb-12">
+                <div className="flex flex-col items-center justify-center p-6 bg-slate-900/50 rounded-xl">
+                    <div className="text-slate-500 text-sm font-bold uppercase tracking-widest mb-2">{t.levelReached}</div>
+                    <div className="text-5xl font-black text-white">{gameResult?.stats?.level || 1}</div>
+                </div>
+                <div className="flex flex-col items-center justify-center p-6 bg-slate-900/50 rounded-xl">
+                    <div className="text-slate-500 text-sm font-bold uppercase tracking-widest mb-2">{t.zoneStatus}</div>
+                    <div className="text-3xl font-bold text-red-500 uppercase">{t.closed}</div>
+                </div>
+                </div>
+
+                <button 
+                onClick={handleBackToMenu}
+                className="relative z-10 px-12 py-5 bg-slate-100 hover:bg-white text-slate-900 font-black text-xl rounded-full shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all uppercase tracking-widest cursor-pointer"
+                >
+                {t.backMenu}
+                </button>
             </div>
-
-            <button 
-              onClick={() => setScreen('MENU')}
-              className="px-12 py-5 bg-slate-100 hover:bg-white text-slate-900 font-black text-xl rounded-full shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all uppercase tracking-widest"
-            >
-              {t.backMenu}
-            </button>
           </div>
         </div>
       )}

@@ -102,8 +102,42 @@ export const SKILL_DATA = {
     color: '#ef4444',
     visualType: 'FIRE'
   },
+  // 6. Phantom Daggers (Synergy: Frost)
+  weapon_phantom_daggers: {
+    cooldown: 1.0,
+    cooldownLevel: -0.1,
+    damageBase: 40,
+    damageLevel: 10,
+    count: [2, 3, 3, 4, 5],
+    speed: 700,
+    color: '#22d3ee', // Cyan
+    visualType: 'DAGGER'
+  },
+  // 7. Thunder Totem (Synergy: Lightning)
+  weapon_thunder_totem: {
+    cooldown: 10,
+    duration: 8,
+    damageBase: 15,
+    damageLevel: 5,
+    attackSpeed: 0.5,
+    range: 300,
+    color: '#3b82f6', // Blue
+    visualType: 'TOTEM'
+  },
+  // 8. Toxic Canister (Area)
+  weapon_toxic_gas: {
+    cooldown: 3.5,
+    damageBase: 10, // Per tick
+    damageLevel: 3,
+    duration: 5.0,
+    radius: 120,
+    color: '#10b981', // Emerald
+    visualType: 'POISON'
+  },
   
-  // 6. Void Dash (Active - Q)
+  // --- ACTIVE SKILLS ---
+  
+  // 9. Void Dash (Active - Q)
   active_void_dash: {
     cooldown: 6.0,
     cooldownLevel: -0.5,
@@ -112,7 +146,7 @@ export const SKILL_DATA = {
     color: '#1e293b',
     visualType: 'DEFAULT'
   },
-  // 7. Meteor Shower (Active - E)
+  // 10. Meteor Shower (Active - E)
   active_meteor_shower: {
     cooldown: 15.0,
     cooldownLevel: -0.5,
@@ -125,7 +159,7 @@ export const SKILL_DATA = {
     color: '#f97316',
     visualType: 'METEOR'
   },
-  // 8. Holy Barrier (Active - E/R)
+  // 11. Holy Barrier (Active - E/R)
   active_holy_barrier: {
     cooldown: 18.0,
     cooldownLevel: -0.5,
@@ -137,6 +171,16 @@ export const SKILL_DATA = {
     radius: 150,
     color: '#fef08a',
     visualType: 'WAVE'
+  },
+  // 12. Frost Nova (Active - E)
+  active_frost_nova: {
+    cooldown: 12.0,
+    cooldownLevel: -0.5,
+    radius: 350,
+    duration: 3.0, // Freeze time
+    damageBase: 20,
+    color: '#06b6d4', // Cyan 500
+    visualType: 'ICE'
   }
 };
 
@@ -198,7 +242,7 @@ export const UPGRADES: Upgrade[] = [
     id: 'weapon_chain_lightning',
     type: SkillType.WEAPON,
     name: { en: 'Chain Lightning', zh: '链式闪电' },
-    description: { en: 'Lightning bounces between enemies.', zh: '在敌人之间弹跳的闪电。' },
+    description: { en: 'Lightning bounces between enemies. Overloads Totems.', zh: '在敌人间弹跳。击中“雷霆图腾”会引发大爆炸。' },
     rarity: 'EPIC',
     apply: (e) => { e.skills['weapon_chain_lightning'] = (e.skills['weapon_chain_lightning'] || 0) + 1; }
   },
@@ -217,6 +261,30 @@ export const UPGRADES: Upgrade[] = [
     description: { en: 'Summons a dragon that fights for you.', zh: '召唤一条为你而战的幼龙。' },
     rarity: 'LEGENDARY',
     apply: (e) => { e.skills['summon_dragon_scion'] = (e.skills['summon_dragon_scion'] || 0) + 1; }
+  },
+  {
+    id: 'weapon_phantom_daggers',
+    type: SkillType.WEAPON,
+    name: { en: 'Phantom Daggers', zh: '幻影匕首' },
+    description: { en: 'Throw daggers behind you. 3x DMG to Frozen enemies.', zh: '向背后投掷匕首。对冰冻敌人造成3倍伤害。' },
+    rarity: 'RARE',
+    apply: (e) => { e.skills['weapon_phantom_daggers'] = (e.skills['weapon_phantom_daggers'] || 0) + 1; }
+  },
+  {
+    id: 'weapon_thunder_totem',
+    type: SkillType.WEAPON,
+    name: { en: 'Thunder Totem', zh: '雷霆图腾' },
+    description: { en: 'Summons a turret. Hit it with Lightning to DETONATE.', zh: '召唤电击塔。被你的闪电击中时会过载爆炸。' },
+    rarity: 'EPIC',
+    apply: (e) => { e.skills['weapon_thunder_totem'] = (e.skills['weapon_thunder_totem'] || 0) + 1; }
+  },
+  {
+    id: 'weapon_toxic_gas',
+    type: SkillType.WEAPON,
+    name: { en: 'Toxic Canister', zh: '剧毒瓦斯' },
+    description: { en: 'Throws poison pools that damage over time.', zh: '投掷毒气罐，生成持续伤害的毒池。' },
+    rarity: 'COMMON',
+    apply: (e) => { e.skills['weapon_toxic_gas'] = (e.skills['weapon_toxic_gas'] || 0) + 1; }
   },
 
   // --- ACTIVE SKILLS ---
@@ -243,6 +311,14 @@ export const UPGRADES: Upgrade[] = [
     description: { en: 'Gain shield and damage aura.', zh: '获得护盾与伤害光环。' },
     rarity: 'RARE',
     apply: (e) => { e.skills['active_holy_barrier'] = (e.skills['active_holy_barrier'] || 0) + 1; }
+  },
+  {
+    id: 'active_frost_nova',
+    type: SkillType.ACTIVE,
+    name: { en: 'Frost Nova (E)', zh: '极寒新星 (E)' },
+    description: { en: 'Freeze all nearby enemies for 3s.', zh: '冻结周围敌人3秒。配合匕首有奇效。' },
+    rarity: 'EPIC',
+    apply: (e) => { e.skills['active_frost_nova'] = (e.skills['active_frost_nova'] || 0) + 1; }
   },
 
   // --- PASSIVES ---
