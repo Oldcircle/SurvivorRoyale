@@ -19,15 +19,15 @@
     *   *高机动，极速射击，擅长风筝敌人。*
 
 ### 2. Deep Skill System / 深度技能系统
-*   **Roguelike Progression**: Level up by collecting EXP gems dropped by enemies. Choose from random upgrades to build your unique character.
-    *   *肉鸽成长：收集怪物掉落的经验宝石升级，从随机选项中选择武器和被动，构筑你的专属流派。*
-*   **Combo Synergies (元素连携)**: Skills interact with each other!
-    *   **Frost Shatter**: Freeze enemies with *Frost Nova*, then hit them with *Phantom Daggers* for **3x Critical Damage**. (冰冻连招：先用极寒新星冻住敌人，再用幻影匕首造成3倍暴击)
-    *   **Thunder Overload**: Hit your own *Thunder Totem* with *Chain Lightning* to trigger a massive area explosion. (过载反应：用链式闪电击中自己的雷霆图腾，引发大范围爆炸)
+*   **Roguelike Progression**: Collect EXP gems to level up. Pick from 3 random upgrades. Each skill caps at **Lv 3**; maxed skills **won’t appear** again.
+    *   *肉鸽成长：收集经验宝石升级，每次从 3 个随机选项中选择。每个技能最高 **3 级**；已满级技能 **不再出现**。*
+*   **Combo Synergies (元素联动)**: Skills enhance each other.
+    *   **Frost Shatter**: Use *Frost Nova* to freeze, then *Phantom Daggers* deal **2.5x + guaranteed crit**. *(冰冻→匕首：极寒新星冻结后，幻影匕首造成 **2.5倍 并必定暴击**)*
+    *   **Thunder Overload**: Hitting your *Thunder Totem* with *Chain Lightning* triggers a controlled area blast. *(过载：链式闪电击中己方雷霆图腾，触发可控范围爆炸)*
 
 ### 3. Advanced AI / 智能 AI 对手
-*   **Bot Behavior**: 14 AI opponents fight alongside you. They will farm monsters, upgrade themselves, kite enemies, and even dodge your bullets and skills using predictive movement.
-    *   *像真人一样的电脑对手：14名 AI 猎人会和你一起发育。它们会打怪升级、风筝敌人，甚至通过预判弹道来躲避你的攻击和技能。*
+*   **Bot Behavior**: 14 AI opponents farm, kite, and upgrade. Enhanced avoidance keeps distance from mobs, uses dash/Frost Nova defensively, and activates Holy Barrier when swarmed.
+    *   *AI 优化：AI 主动与怪物保持距离，近身时使用闪步/极寒新星自保，被围时启用圣光结界。*
 
 ---
 
@@ -59,10 +59,18 @@
 
 2.  **Start local server**:
     ```bash
-    npm start
+    npm run dev
     ```
+    Local: `http://localhost:3000/SurvivorRoyale/`
 
 3.  **Build for production**:
     ```bash
     npm run build
     ```
+
+## 📚 Systems Overview / 系统总览
+
+- **Classes / 职业**：战士（近战稳健）、法师（远程爆发）、游侠（高机动高射速）
+- **Skills / 技能**：分为自动武器、主动技能、被动强化；技能最高 Lv 3，满级后不再出现。
+- **Synergies / 联动**：冻结→匕首爆发；图腾→闪电过载；结界→旋刃近战稳场。
+- **AI / 人工智能**：避弹、避怪、风筝、捡经验、条件释放技能，整体更贴近真人操作逻辑。

@@ -76,7 +76,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     gameState.current.zoneRadius = INITIAL_ZONE_RADIUS;
     gameState.current.isGameOver = false;
 
-    const startPos = { x: MAP_SIZE / 2, y: MAP_SIZE / 2 };
+    const center = { x: MAP_SIZE / 2, y: MAP_SIZE / 2 };
+    const totalParticipants = 15;
+    const ringR = Math.min(INITIAL_ZONE_RADIUS * 0.8, MAP_SIZE / 2 - 100);
+    const angleBase = Math.random() * Math.PI * 2;
+    const spawnPositions: { x: number; y: number }[] = [];
+    for (let i = 0; i < totalParticipants; i++) {
+      const base = angleBase + (i * (Math.PI * 2 / totalParticipants));
+      const jitter = (Math.random() - 0.5) * (Math.PI * 2 / totalParticipants) * 0.3;
+      const ang = base + jitter;
+      const radJitter = (Math.random() - 0.5) * 150;
+      const r = ringR + radJitter;
+      let px = center.x + Math.cos(ang) * r;
+      let py = center.y + Math.sin(ang) * r;
+      px = Math.max(50, Math.min(MAP_SIZE - 50, px));
+      py = Math.max(50, Math.min(MAP_SIZE - 50, py));
+      spawnPositions.push({ x: px, y: py });
+    }
+    const startPos = spawnPositions[0];
     const stats = CLASS_STATS[selectedClass];
     
     const player: Entity = {
@@ -112,7 +129,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       regen: 0,
       critRate: 0.05,
       critDamage: 1.5,
-      invulnerableUntil: 0,
+      invulnerableUntil: 2.5,
       frozenUntil: 0,
       shield: 0,
       maxShield: 0
@@ -126,14 +143,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     for (let i = 0; i < 14; i++) {
       const botClass = Object.values(ClassType)[Math.floor(Math.random() * 3)];
       const botStats = CLASS_STATS[botClass];
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 800 + Math.random() * 1200; 
-      
+      const posSpawn = spawnPositions[i + 1];
       entities.current.push({
         ...player,
         id: `bot_${i}`,
         type: EntityType.BOT,
-        pos: { x: MAP_SIZE/2 + Math.cos(angle)*dist, y: MAP_SIZE/2 + Math.sin(angle)*dist },
+        pos: { x: posSpawn.x, y: posSpawn.y },
         color: botStats.color,
         hp: botStats.hp,
         maxHp: botStats.hp,
@@ -144,7 +159,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         name: BOT_NAMES[i % BOT_NAMES.length],
         lastCombatTime: -10,
         skills: {},
-        skillCDs: {}
+        skillCDs: {},
+        magnet: 130,
+        xpMult: 1.05,
+        invulnerableUntil: gameState.current.gameTime + 2.5
       });
     }
   }, [selectedClass, language]);
@@ -193,8 +211,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (gameState.current.isPaused) return;
     
     const baseSpawnRate = 0.8;
-    const quantityFactor = 1 + Math.min(2.0, gameState.current.gameTime / 180);
-    const difficultyFactor = 1 + (gameState.current.gameTime / 120);
+    const freezeTime = 90;
+    const t = Math.min(gameState.current.gameTime, freezeTime);
+    const quantityFactor = 1 + (t / 180);
+    const difficultyFactor = 1 + (t / 120);
 
     const spawnChance = (dt / baseSpawnRate) * quantityFactor;
     
@@ -315,6 +335,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
          finalAmount *= 1.3;
     }
 
+    // Passive: Weakening Curse reduces incoming damage
+    const weakenLvl = (target.skills && target.skills['passive_weakening_curse']) || 0;
+    if (weakenLvl > 0) {
+        const reduction = Math.min(0.1 * weakenLvl, 0.3);
+        finalAmount *= (1 - reduction);
+    }
+
     finalAmount *= (1 - target.armor);
     finalAmount = Math.max(1, finalAmount - target.flatDamageReduction);
 
@@ -359,11 +386,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const vel = overrides.vel || { x: 0, y: 0 };
     let { amount, isCrit } = calculateDamage(owner, data.damageBase + (data.damageLevel * (owner.skills[data.id] || 0)));
     
-    // SYNERGY: Phantom Daggers vs Frozen targets (3x Damage + Auto Crit)
+    // SYNERGY: Phantom Daggers vs Frozen targets (2.5x Damage + Auto Crit)
     if (data.id === 'weapon_phantom_daggers' && overrides.homingTargetId) {
         const target = entities.current.find(e => e.id === overrides.homingTargetId);
         if (target && target.frozenUntil && target.frozenUntil > gameState.current.gameTime) {
-            amount *= 3;
+            amount *= 2.5;
             isCrit = true; // Auto crit
         }
     }
@@ -473,7 +500,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       // WEAPONS
       if (skillId.startsWith('weapon_') && e.skillCDs[skillId] <= 0) {
-          const targets = entities.current.filter(t => t.id !== e.id && !t.dead && ((e.type === EntityType.PLAYER && (t.type === EntityType.ENEMY || t.type === EntityType.BOT)) || (e.type === EntityType.BOT && (t.type !== EntityType.EXP_GEM && t.id !== e.id))));
+          const targets = entities.current.filter(t => t.id !== e.id && !t.dead && ((e.type === EntityType.PLAYER && (t.type === EntityType.ENEMY || t.type === EntityType.BOT)) || (e.type === EntityType.BOT && (t.type === EntityType.ENEMY || t.type === EntityType.PLAYER))));
           let triggered = false;
           switch (skillId) {
              case 'weapon_whirling_blades': {
@@ -512,17 +539,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                          particles.current.push({ type: 'LIGHTNING', x1: e.pos.x, y1: e.pos.y, x2: target.pos.x, y2: target.pos.y, life: 0.3, color: '#60a5fa', width: 4 });
                          particles.current.push({ type: 'RING', x: target.pos.x, y: target.pos.y, radius: 250, life: 0.4, color: '#60a5fa', width: 10 });
                          // Explosion logic
-                         entities.current.forEach(enemy => {
-                             if (!enemy.dead && enemy.type === EntityType.ENEMY && getDistance(target.pos, enemy.pos) < 250) {
-                                 applyDamage(enemy, calculateDamage(e, 300).amount, e, true); // Massive damage
-                             }
-                         });
+                        entities.current.forEach(enemy => {
+                            if (!enemy.dead && enemy.type === EntityType.ENEMY && getDistance(target.pos, enemy.pos) < 250) {
+                                applyDamage(enemy, calculateDamage(e, 180).amount, e, true);
+                            }
+                        });
                      } else {
                          // Normal chain
                          applyDamage(target, calculateDamage(e, data.damageBase + data.damageLevel * level).amount, e);
                          particles.current.push({ type: 'LIGHTNING', x1: e.pos.x, y1: e.pos.y, x2: target.pos.x, y2: target.pos.y, life: 0.2, color: data.color });
                          let cur = target;
-                         let jumps = data.jumps[Math.min(level-1, 4)];
+                         let jumps = data.jumps[Math.min(level-1, 2)];
                          let dmgMult = 1.0;
                          const hitList = [target.id];
                          for(let j=0; j<jumps; j++) {
@@ -534,7 +561,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                                       particles.current.push({ type: 'RING', x: nextTarget.pos.x, y: nextTarget.pos.y, radius: 250, life: 0.4, color: '#60a5fa', width: 10 });
                                       entities.current.forEach(enemy => {
                                           if (!enemy.dead && enemy.type === EntityType.ENEMY && getDistance(nextTarget.pos, enemy.pos) < 250) {
-                                              applyDamage(enemy, calculateDamage(e, 300).amount, e, true);
+                                              applyDamage(enemy, calculateDamage(e, 180).amount, e, true);
                                           }
                                       });
                                  } else {
@@ -554,7 +581,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
              case 'weapon_bone_spear': {
                  const target = findNearestTarget(e, targets, 800);
                  const angle = target ? Math.atan2(target.pos.y - e.pos.y, target.pos.x - e.pos.x) : Math.atan2(e.vel.y, e.vel.x) || 0;
-                 bullets.current.push(createBullet(e, data, { vel: { x: Math.cos(angle)*data.speed, y: Math.sin(angle)*data.speed }, pierceCount: data.pierce[Math.min(level-1, 4)], lifeTime: 3.0 }));
+                bullets.current.push(createBullet(e, data, { vel: { x: Math.cos(angle)*data.speed, y: Math.sin(angle)*data.speed }, pierceCount: data.pierce[Math.min(level-1, 2)], lifeTime: 3.0 }));
                  triggered = true;
                  break;
              }
@@ -562,7 +589,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                  // Fires BACKWARDS from movement
                  const moveAngle = Math.atan2(e.vel.y, e.vel.x);
                  const backAngle = (e.vel.x === 0 && e.vel.y === 0) ? Math.random() * Math.PI * 2 : moveAngle + Math.PI; 
-                 const count = data.count[Math.min(level-1, 4)];
+                const count = data.count[Math.min(level-1, 2)];
                  const spread = 0.5;
                  for(let i=0; i<count; i++) {
                      const a = backAngle - (spread/2) + (Math.random() * spread);
@@ -626,7 +653,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
        moveVec = addVectors(moveVec, scaleVector(toCenter, 2.5));
     }
 
-    const viewDist = 600;
+    const viewDist = 900;
     const nearby = entities.current.filter(e => !e.dead && e.id !== bot.id && getDistance(bot.pos, e.pos) < viewDist);
     
     const bulletsNear = nearby.filter(e => e.type === EntityType.BULLET && (e as Bullet).ownerId !== bot.id && !(e as Bullet).isPool); // Don't dodge pools like bullets
@@ -637,20 +664,36 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     
     const isSwarmed = enemiesNear.length > 3;
     const hpRatio = bot.hp / bot.maxHp;
-    const survivalMode = hpRatio < 0.4 || isSwarmed;
-    const farmingPhase = bot.level < 8; // Prioritize farming until lvl 8
+    const survivalMode = hpRatio < 0.5 || isSwarmed;
+    const farmingPhase = bot.level < 8;
 
     // 2. Dodge Bullets (Highest Priority for Movement)
     bulletsNear.forEach(b => {
         const d = getDistance(bot.pos, b.pos);
-        if (d < 180) { // Increased dodge radius
-            const away = normalize({ x: bot.pos.x - b.pos.x, y: bot.pos.y - b.pos.y });
-            const urgency = (180 - d) / 180;
-            const dodgeVec = d > 100 ? { x: -away.y, y: away.x } : away;
-            moveVec = addVectors(moveVec, scaleVector(dodgeVec, 12.0 * urgency)); 
-            if (urgency > 0.7 && bot.skills['active_void_dash'] && bot.skillCDs['active_void_dash'] <= 0) {
-                activateSkill(bot, 'active_void_dash');
+        const vMag = Math.hypot(b.vel.x, b.vel.y);
+        let urgency = 0;
+        let dodgeDir = { x: 0, y: 0 };
+        if (vMag > 0) {
+            const rx = bot.pos.x - b.pos.x;
+            const ry = bot.pos.y - b.pos.y;
+            const t = Math.max(0, Math.min(0.6, (rx * b.vel.x + ry * b.vel.y) / (vMag * vMag)));
+            const px = b.pos.x + b.vel.x * t;
+            const py = b.pos.y + b.vel.y * t;
+            const pd = getDistance(bot.pos, { x: px, y: py });
+            if (pd < 220) {
+                urgency = (220 - pd) / 220;
+                const perp = normalize({ x: -b.vel.y, y: b.vel.x });
+                dodgeDir = perp;
             }
+        }
+        if (urgency === 0 && d < 220) {
+            const away = normalize({ x: bot.pos.x - b.pos.x, y: bot.pos.y - b.pos.y });
+            urgency = (220 - d) / 220;
+            dodgeDir = d > 100 ? normalize({ x: -away.y, y: away.x }) : away;
+        }
+        if (urgency > 0) {
+            moveVec = addVectors(moveVec, scaleVector(dodgeDir, 14.0 * urgency));
+            if (urgency > 0.65 && bot.skills['active_void_dash'] && bot.skillCDs['active_void_dash'] <= 0) activateSkill(bot, 'active_void_dash');
         }
     });
 
@@ -664,14 +707,22 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     });
 
     // 3. Enemy/Mob Avoidance (Kiting)
-    const personalSpace = survivalMode ? 450 : 200; 
+    const personalSpace = survivalMode ? 520 : 260;
     enemiesNear.forEach(e => {
         const d = getDistance(bot.pos, e.pos);
+        const sumR = bot.radius + e.radius;
         if (d < personalSpace) {
             const away = normalize({ x: bot.pos.x - e.pos.x, y: bot.pos.y - e.pos.y });
             const urgency = (personalSpace - d) / personalSpace;
-            const weight = survivalMode ? 12.0 : 6.0;
+            let weight = d < sumR + 40 ? 16.0 : (survivalMode ? 12.0 : 8.0);
+            if (bot.level < 4) weight *= 1.3;
             moveVec = addVectors(moveVec, scaleVector(away, weight * urgency));
+        }
+        if (d < sumR + 20) {
+            const awayHard = normalize({ x: bot.pos.x - e.pos.x, y: bot.pos.y - e.pos.y });
+            moveVec = addVectors(moveVec, scaleVector(awayHard, 20.0));
+            if (bot.skills['active_void_dash'] && bot.skillCDs['active_void_dash'] <= 0) activateSkill(bot, 'active_void_dash');
+            if (bot.skills['active_frost_nova'] && bot.skillCDs['active_frost_nova'] <= 0) activateSkill(bot, 'active_frost_nova');
         }
     });
     
@@ -680,11 +731,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         rivalsNear.forEach(r => {
              const d = getDistance(bot.pos, r.pos);
              const rivalHp = r.hp / r.maxHp;
-             const isThreat = rivalHp > 0.2 || hpRatio < 0.5;
+             const isThreat = rivalHp > 0.2 || hpRatio < 0.5 || r.level > bot.level + 2 || r.damage > bot.damage * 1.2;
              const fleeDist = 600;
              if (isThreat && d < fleeDist) {
                  const away = normalize({ x: bot.pos.x - r.pos.x, y: bot.pos.y - r.pos.y });
-                 moveVec = addVectors(moveVec, scaleVector(away, 8.0));
+                 const fleeWeight = (bot.level < 4 || hpRatio < 0.4) ? 12.0 : 8.0;
+                 moveVec = addVectors(moveVec, scaleVector(away, fleeWeight));
              }
         });
     }
@@ -710,7 +762,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     if (!survivalMode) {
         let target: Entity | null = null;
         
-        const killableRival = rivalsNear.find(r => r.hp < r.maxHp * 0.25 && getDistance(bot.pos, r.pos) < 300);
+        const killableRival = rivalsNear.find(r => r.hp < r.maxHp * 0.3 && getDistance(bot.pos, r.pos) < 360);
 
         if (farmingPhase && !killableRival) {
             let minMobDist = Infinity;
@@ -753,11 +805,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             }
             
             if (bot.skills['active_meteor_shower'] && bot.skillCDs['active_meteor_shower'] <= 0) activateSkill(bot, 'active_meteor_shower');
-            if (bot.skills['active_frost_nova'] && bot.skillCDs['active_frost_nova'] <= 0 && d < 300) activateSkill(bot, 'active_frost_nova');
+            const closeEnemies = enemiesNear.filter(en => getDistance(bot.pos, en.pos) < 320).length;
+            if (bot.skills['active_frost_nova'] && bot.skillCDs['active_frost_nova'] <= 0 && (d < 300 || closeEnemies >= 2)) activateSkill(bot, 'active_frost_nova');
         }
     }
 
-    if (hpRatio < 0.5 && bot.skills['active_holy_barrier'] && bot.skillCDs['active_holy_barrier'] <= 0) activateSkill(bot, 'active_holy_barrier');
+    let farmTarget: Entity | null = null;
+    if (!isSwarmed && farmingPhase) {
+        let minDistFT = Infinity;
+        entities.current.forEach(en => {
+            if (en.type === EntityType.ENEMY && !en.dead) {
+                const d = getDistance(bot.pos, en.pos);
+                if (d < minDistFT) { minDistFT = d; farmTarget = en; }
+            }
+        });
+    }
+    if (farmTarget && survivalMode) {
+        const toTarget = normalize({ x: farmTarget.pos.x - bot.pos.x, y: farmTarget.pos.y - bot.pos.y });
+        const idealRange = bot.range * 0.8;
+        const d = getDistance(bot.pos, farmTarget.pos);
+        if (d > idealRange + 100) moveVec = addVectors(moveVec, scaleVector(toTarget, 1.3));
+    }
+
+    if ((hpRatio < 0.6 || isSwarmed) && bot.skills['active_holy_barrier'] && bot.skillCDs['active_holy_barrier'] <= 0) activateSkill(bot, 'active_holy_barrier');
 
     const finalDir = normalize(moveVec);
     // Smooth deceleration
@@ -916,9 +986,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                       c.maxHp = Math.floor(c.maxHp * 1.1) + 20;
                       c.hp = c.maxHp;
                       if(c.maxShield > 0) c.maxShield = Math.floor(c.maxShield * 1.1);
-                      const skillIds = Object.keys(SKILL_DATA);
-                      const randomId = skillIds[Math.floor(Math.random() * skillIds.length)];
-                      c.skills[randomId] = (c.skills[randomId] || 0) + 1;
+                      const skillIds = Object.keys(SKILL_DATA).filter(id => (c.skills[id] || 0) < 3);
+                      if (skillIds.length > 0) {
+                        const randomId = skillIds[Math.floor(Math.random() * skillIds.length)];
+                        c.skills[randomId] = (c.skills[randomId] || 0) + 1;
+                      }
                   }
                   particles.current.push({ x: e.pos.x, y: e.pos.y, text: `+${Math.floor(e.exp * c.xpMult)}`, life: 0.5, vy: -30, color: '#3b82f6', isExp: true });
                }
@@ -983,20 +1055,30 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           b.pos.y += b.vel.y * dt;
       }
       
-      // Hit Detection
       let hit = false;
-      // Optimize: Only check collision periodically for pools
-      if (b.isPool && Math.random() > 0.1) continue; 
+      if (b.isPool) {
+          b.cooldown = (b.cooldown || 0) - dt;
+          const shouldTick = b.cooldown <= 0;
+          if (shouldTick) b.cooldown = 0.5;
+          for (const e of entities.current) {
+              if (e.dead || e.id === b.ownerId || e.type === EntityType.EXP_GEM || e.type === EntityType.PET) continue;
+              const isTarget = (e.type === EntityType.ENEMY) || (e.type === EntityType.BOT && b.ownerId === 'player') || (e.type === EntityType.PLAYER && b.ownerId !== 'player') || (e.type === EntityType.BOT && b.ownerId !== e.id);
+              if (isTarget && getDistance(b.pos, e.pos) < e.radius + b.radius) {
+                  if (shouldTick) applyDamage(e, b.damage, entities.current.find(o => o.id === b.ownerId));
+              }
+          }
+          continue;
+      }
 
       for (const e of entities.current) {
         if (e.dead || e.id === b.ownerId || e.type === EntityType.EXP_GEM || e.type === EntityType.PET) continue;
         const isTarget = (e.type === EntityType.ENEMY) || (e.type === EntityType.BOT && b.ownerId === 'player') || (e.type === EntityType.PLAYER && b.ownerId !== 'player') || (e.type === EntityType.BOT && b.ownerId !== e.id);
         if (isTarget && getDistance(b.pos, e.pos) < e.radius + b.radius) {
-          if (b.isWave || b.isPool) {
+          if (b.isWave) {
                b.cooldown -= dt;
                if (b.cooldown <= 0) {
                    applyDamage(e, b.damage, entities.current.find(o => o.id === b.ownerId));
-                   b.cooldown = b.isPool ? 0.5 : 0.5;
+                   b.cooldown = 0.5;
                }
                continue;
           }
@@ -1233,15 +1315,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           case 'ORB': {
               const t = gameState.current.gameTime * 8;
               const r = b.radius + Math.sin(t) * 2;
-              const grad = ctx.createRadialGradient(0, 0, r*0.2, 0, 0, r*1.5);
-              grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-              grad.addColorStop(0.4, b.color);
-              grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+              ctx.globalCompositeOperation = 'lighter';
+              const grad = ctx.createRadialGradient(0, 0, r*0.2, 0, 0, r*1.8);
+              grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+              grad.addColorStop(0.3, b.color);
+              grad.addColorStop(1, 'rgba(0,0,0,0)');
               ctx.fillStyle = grad;
-              ctx.beginPath(); ctx.arc(0, 0, r*1.5, 0, Math.PI*2); ctx.fill();
+              ctx.beginPath(); ctx.arc(0, 0, r*1.8, 0, Math.PI*2); ctx.fill();
+              ctx.shadowBlur = 12; ctx.shadowColor = b.color;
               ctx.fillStyle = '#fff';
-              ctx.beginPath(); ctx.arc(0, 0, b.radius * 0.5, 0, Math.PI * 2); ctx.fill();
-              ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-b.vel.x * 0.05, -b.vel.y * 0.05); ctx.strokeStyle = b.color; ctx.lineWidth = 2; ctx.stroke();
+              ctx.beginPath(); ctx.arc(0, 0, b.radius * 0.6, 0, Math.PI * 2); ctx.fill();
+              ctx.shadowBlur = 0;
+              ctx.strokeStyle = b.color; ctx.lineWidth = 2;
+              ctx.beginPath(); ctx.arc(0, 0, r*1.1, 0, Math.PI*2); ctx.stroke();
+              ctx.globalCompositeOperation = 'source-over';
               break;
           }
           case 'FIRE': {
@@ -1256,18 +1343,22 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               break;
           }
           case 'POISON': {
-              // Pulse alpha
-              ctx.globalAlpha = 0.5 + Math.sin(gameState.current.gameTime * 3) * 0.2;
-              ctx.fillStyle = '#10b981';
+              const pulse = 0.5 + Math.sin(gameState.current.gameTime * 3) * 0.2;
+              ctx.globalAlpha = pulse;
+              const grad = ctx.createRadialGradient(0, 0, b.radius*0.2, 0, 0, b.radius);
+              grad.addColorStop(0, 'rgba(16,185,129,0.6)');
+              grad.addColorStop(0.6, 'rgba(52,211,153,0.4)');
+              grad.addColorStop(1, 'rgba(16,185,129,0.0)');
+              ctx.fillStyle = grad;
               ctx.beginPath(); ctx.arc(0, 0, b.radius, 0, Math.PI*2); ctx.fill();
-              
-              // Bubbles
-              ctx.globalAlpha = 0.8;
-              ctx.fillStyle = '#34d399';
+              ctx.globalAlpha = 0.7;
+              ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 3;
+              ctx.beginPath(); ctx.arc(0, 0, b.radius*0.85, 0, Math.PI*2); ctx.stroke();
+              ctx.globalAlpha = 0.9;
               const bubbleX = Math.sin(gameState.current.gameTime * 5) * (b.radius * 0.5);
               const bubbleY = Math.cos(gameState.current.gameTime * 3) * (b.radius * 0.5);
-              ctx.beginPath(); ctx.arc(bubbleX, bubbleY, b.radius * 0.3, 0, Math.PI*2); ctx.fill();
-              
+              ctx.fillStyle = '#34d399';
+              ctx.beginPath(); ctx.arc(bubbleX, bubbleY, b.radius * 0.25, 0, Math.PI*2); ctx.fill();
               ctx.globalAlpha = 1.0;
               break;
           }

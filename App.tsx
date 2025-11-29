@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { GameCanvas } from './components/GameCanvas';
 import { ClassType, Upgrade, Language } from './types';
-import { UPGRADES, CLASS_STATS, TEXTS } from './constants';
+import { UPGRADES, CLASS_STATS, TEXTS, SKILL_DATA } from './constants';
 import { Sword, Zap, Crown, Play, Skull, Globe, Target as TargetIcon } from 'lucide-react';
 
 export default function App() {
@@ -24,8 +24,17 @@ export default function App() {
 
   const handleLevelUp = (level: number) => {
     setIsPaused(true);
-    const shuffled = [...UPGRADES].sort(() => 0.5 - Math.random());
-    setUpgradeOptions(shuffled.slice(0, 3));
+    const player = (window as any).SurvivorGamePlayer;
+    const skills = (player?.skills) || {};
+    const available = UPGRADES.filter(upg => (skills[upg.id] || 0) < 3);
+    const shuffled = [...available].sort(() => 0.5 - Math.random());
+    const options = shuffled.slice(0, 3);
+    if (options.length === 0) {
+      setShowLevelUp(false);
+      setIsPaused(false);
+      return;
+    }
+    setUpgradeOptions(options);
     setShowLevelUp(true);
   };
 
@@ -139,28 +148,41 @@ export default function App() {
                  <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-200 to-yellow-600 text-center mb-10 tracking-widest uppercase drop-shadow-sm">{t.levelUp}</h2>
                  
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                   {upgradeOptions.map((upg) => (
-                     <button
-                       key={upg.id}
-                       onClick={() => handleSelectUpgrade(upg)}
-                       className="group relative p-8 bg-slate-800 border border-slate-700 rounded-2xl hover:border-yellow-400 hover:bg-slate-800/80 hover:-translate-y-2 transition-all duration-300 text-left flex flex-col h-full shadow-lg cursor-pointer"
-                     >
-                       <div className="flex justify-between items-start mb-6">
-                           <div className={`text-xs font-black px-3 py-1 rounded-md uppercase tracking-wider ${
-                             upg.rarity === 'LEGENDARY' ? 'bg-orange-500 text-black shadow-orange-500/50 shadow-lg' :
-                             upg.rarity === 'EPIC' ? 'bg-purple-600 text-white shadow-purple-500/50 shadow-lg' :
-                             upg.rarity === 'RARE' ? 'bg-blue-600 text-white shadow-blue-500/50 shadow-lg' : 'bg-slate-600 text-slate-200'
-                           }`}>
-                             {upg.rarity}
-                           </div>
-                       </div>
+                  {upgradeOptions.map((upg) => (
+                    <button
+                      key={upg.id}
+                      onClick={() => handleSelectUpgrade(upg)}
+                      className="group relative p-8 bg-slate-800 border border-slate-700 rounded-2xl hover:border-yellow-400 hover:bg-slate-800/80 hover:-translate-y-2 transition-all duration-300 text-left flex flex-col h-full shadow-lg cursor-pointer"
+                      style={{ boxShadow: `0 0 40px ${(SKILL_DATA as any)[upg.id]?.color || '#f59e0b'}22` }}
+                    >
+                      <div className="flex justify-between items-start mb-6">
+                          <div className={`text-xs font-black px-3 py-1 rounded-md uppercase tracking-wider ${
+                            upg.rarity === 'LEGENDARY' ? 'bg-orange-500 text-black shadow-orange-500/50 shadow-lg' :
+                            upg.rarity === 'EPIC' ? 'bg-purple-600 text-white shadow-purple-500/50 shadow-lg' :
+                            upg.rarity === 'RARE' ? 'bg-blue-600 text-white shadow-blue-500/50 shadow-lg' : 'bg-slate-600 text-slate-200'
+                          }`}>
+                            {upg.rarity}
+                          </div>
+                          <div className="ml-3 p-2 rounded-xl bg-slate-900 border border-slate-700 shadow-inner" style={{ color: (SKILL_DATA as any)[upg.id]?.color || '#f59e0b' }}>
+                            {upg.type === 'WEAPON' && <Zap size={20} />}
+                            {upg.type === 'ACTIVE' && <Play size={20} />}
+                            {upg.type === 'PASSIVE' && <Crown size={20} />}
+                          </div>
+                      </div>
                        
-                       <h3 className="text-2xl font-bold mb-4 text-slate-100 group-hover:text-yellow-300 transition-colors">{upg.name[lang]}</h3>
+                       <h3 className="text-2xl font-bold mb-2 text-slate-100 group-hover:text-yellow-300 transition-colors">{upg.name[lang]}</h3>
+                       <div className="mb-3 text-sm font-bold text-yellow-400">
+                         Lv {(window as any).SurvivorGamePlayer?.skills?.[upg.id] || 0}/3
+                       </div>
+                       <div className="h-2 w-full bg-slate-700 rounded-sm mb-4 overflow-hidden">
+                         <div className="h-full" style={{ background: `linear-gradient(90deg, ${(SKILL_DATA as any)[upg.id]?.color || '#f59e0b'} 0%, #fde047 100%)`, width: `${Math.min(100, (((window as any).SurvivorGamePlayer?.skills?.[upg.id] || 0)/3)*100)}%` }}></div>
+                       </div>
                        <p className="text-slate-400 text-base leading-relaxed">{upg.description[lang]}</p>
                        
                        <div className="absolute inset-0 rounded-2xl border-2 border-yellow-400/0 group-hover:border-yellow-400/50 transition-all pointer-events-none"></div>
-                     </button>
-                   ))}
+                       <div className="absolute -inset-0 rounded-2xl opacity-0 group-hover:opacity-30 blur-2xl" style={{ background: `radial-gradient(circle at center, ${(SKILL_DATA as any)[upg.id]?.color || '#f59e0b'}33, transparent 60%)` }}></div>
+                    </button>
+                  ))}
                  </div>
                </div>
              </div>
