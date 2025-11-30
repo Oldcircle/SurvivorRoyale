@@ -153,7 +153,7 @@ export const SKILL_DATA = {
     damageBase: 45,
     damageLevel: 12,
     count: [5, 8, 12],
-    radius: 260,
+    radius: 360,
     aoe: 90,
     delay: 0.7,
     color: '#f97316',
@@ -177,7 +177,7 @@ export const SKILL_DATA = {
     cooldown: 12.0,
     cooldownLevel: -0.5,
     radius: 360,
-    duration: 2.5, // Freeze time
+    duration: 1.5,
     damageBase: 15,
     color: '#06b6d4',
     visualType: 'ICE'
@@ -377,6 +377,14 @@ export const UPGRADES: Upgrade[] = [
     description: { en: '+8% Crit Rate, +30% Crit Dmg.', zh: '暴击率 +8%，暴击伤害 +30%。' },
     rarity: 'EPIC',
     apply: (e) => { const cur=(e.skills['passive_lethal_precision']||0); if(cur>=3) return; e.skills['passive_lethal_precision']=cur+1; e.critRate += 0.08; e.critDamage += 0.3; }
+  },
+  {
+    id: 'passive_fleet_footwork',
+    type: SkillType.PASSIVE,
+    name: { en: 'Fleet Footwork', zh: '疾行之风' },
+    description: { en: '+6% Move Speed per level (max 18%).', zh: '每级移动速度 +6%（最高 18%）。' },
+    rarity: 'RARE',
+    apply: (e) => { const cur=(e.skills['passive_fleet_footwork']||0); if(cur>=3) return; e.skills['passive_fleet_footwork']=cur+1; e.speed = e.speed * 1.06; }
   }
 ];
 

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Entity, EntityType, Vector, Bullet, GameState, ClassType, Language } from '../types';
+import { Entity, EntityType, Vector, Bullet, GameState, ClassType, Language, AttackMode } from '../types';
 import { MAP_SIZE, INITIAL_ZONE_RADIUS, ZONE_SHRINK_SPEED, ZONE_DAMAGE_PER_SEC, CLASS_STATS, COLOR_PALETTE, BOT_NAMES, TEXTS, REGEN_DELAY, REGEN_RATE_PERCENT, SKILL_DATA } from '../constants';
 import { Trophy, Skull, Target, Zap, Shield as ShieldIcon, User } from 'lucide-react';
 
@@ -19,6 +19,7 @@ interface GameCanvasProps {
   isPaused: boolean;
   language: Language;
   upgradeQueue: number;
+  attackMode: AttackMode;
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({ 
@@ -26,7 +27,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onLevelUp, 
   onGameOver, 
   isPaused,
-  language
+  language,
+  attackMode
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mousePos = useRef<Vector>({ x: 0, y: 0 });
@@ -853,6 +855,33 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     }
   };
 
+  const fireBulletDir = (source: Entity, dir: Vector) => {
+    source.lastCombatTime = gameState.current.gameTime;
+    const count = source.projectileCount || 1;
+    const spread = 0.2;
+    const startAngle = -((count - 1) * spread) / 2;
+    const baseAngle = Math.atan2(dir.y, dir.x);
+    for (let i = 0; i < count; i++) {
+      const angle = baseAngle + startAngle + (i * spread);
+      const vel = { x: Math.cos(angle) * 600, y: Math.sin(angle) * 600 };
+      const { amount } = calculateDamage(source, source.damage);
+      bullets.current.push({
+        id: `bullet_${Math.random()}_${Date.now()}`, type: EntityType.BULLET, pos: { ...source.pos }, vel: vel, radius: 4 * source.areaScale, color: source.color, hp: 1, maxHp: 1, dead: false, damage: amount, cooldown: 0, maxCooldown: 0, range: 0, speed: 0, level: 0, exp: 0, expToNextLevel: 0, projectileCount: 0, piercing: source.piercing, ownerId: source.id, lifeTime: 1.5, pierceCount: source.piercing, lastCombatTime: 0, skills: {}, skillCDs: {}, armor: 0, flatDamageReduction: 0, lifesteal: 0, magnet: 0, xpMult: 0, areaScale: 1, regen: 0, critRate: 0, critDamage: 0, invulnerableUntil: 0, shield: 0, maxShield: 0,
+        visualType: 'DEFAULT'
+      });
+    }
+  };
+  const getAimDir = (e: Entity): Vector => {
+    const canvas = canvasRef.current;
+    const width = canvas?.width || window.innerWidth;
+    const height = canvas?.height || window.innerHeight;
+    const camX = e.pos.x - width / 2;
+    const camY = e.pos.y - height / 2;
+    const worldMouseX = mousePos.current.x + camX;
+    const worldMouseY = mousePos.current.y + camY;
+    return normalize({ x: worldMouseX - e.pos.x, y: worldMouseY - e.pos.y });
+  };
+
   const updateEntityPhysics = (dt: number, e: Entity) => {
     if (e.isStatic) return; // Totems don't move
     if (e.frozenUntil && e.frozenUntil > gameState.current.gameTime) {
@@ -972,10 +1001,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                   if (c.type === EntityType.PLAYER && c.exp >= c.expToNextLevel) {
                       onLevelUp(c.level);
                       c.level++;
-                      c.maxHp = Math.floor(c.maxHp * 1.1) + 10;
-                      c.damage = c.damage * 1.05;
+                      c.maxHp = Math.floor(c.maxHp * 1.2) + 30;
+                      c.damage = Math.floor(c.damage * 1.1);
                       c.hp = c.maxHp; 
-                      if(c.maxShield > 0) c.maxShield = Math.floor(c.maxShield * 1.1);
+                      if(c.maxShield > 0) c.maxShield = Math.floor(c.maxShield * 1.2);
                       c.exp = 0;
                       c.expToNextLevel = Math.floor(c.expToNextLevel * 1.5);
                   } else if (c.type === EntityType.BOT && c.exp >= c.expToNextLevel) {
@@ -983,9 +1012,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                       c.exp = 0;
                       c.expToNextLevel = Math.floor(c.expToNextLevel * 1.5);
                       c.damage = Math.floor(c.damage * 1.1);
-                      c.maxHp = Math.floor(c.maxHp * 1.1) + 20;
+                      c.maxHp = Math.floor(c.maxHp * 1.2) + 30;
                       c.hp = c.maxHp;
-                      if(c.maxShield > 0) c.maxShield = Math.floor(c.maxShield * 1.1);
+                      if(c.maxShield > 0) c.maxShield = Math.floor(c.maxShield * 1.2);
                       const skillIds = Object.keys(SKILL_DATA).filter(id => (c.skills[id] || 0) < 3);
                       if (skillIds.length > 0) {
                         const randomId = skillIds[Math.floor(Math.random() * skillIds.length)];
@@ -1003,7 +1032,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (e.cooldown <= 0 && (!e.frozenUntil || e.frozenUntil <= gameState.current.gameTime)) {
           const potentialTargets = entities.current.filter(t => t.id !== e.id && !t.dead && ((e.type === EntityType.PLAYER && (t.type === EntityType.ENEMY || t.type === EntityType.BOT)) || (e.type === EntityType.BOT && (t.type === EntityType.ENEMY || t.type === EntityType.PLAYER || t.type === EntityType.BOT))));
           const target = findNearestTarget(e, potentialTargets);
-          if (target) {
+          if (e.type === EntityType.PLAYER && attackMode === 'MANUAL') {
+            const aim = getAimDir(e);
+            if (aim.x !== 0 || aim.y !== 0) {
+              fireBulletDir(e, aim);
+              e.cooldown = e.maxCooldown;
+            }
+          } else if (target) {
             fireBullet(e, target);
             e.cooldown = e.maxCooldown;
           }
@@ -1043,12 +1078,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
          }
       } else if (b.isOrbit) {
          const owner = entities.current.find(e => e.id === b.ownerId);
-         if (owner) {
+         if (owner && !owner.dead) {
              b.orbitAngle = (b.orbitAngle || 0) + (b.orbitSpeed || 2) * dt;
              b.pos.x = owner.pos.x + Math.cos(b.orbitAngle) * (b.orbitDist || 100);
              b.pos.y = owner.pos.y + Math.sin(b.orbitAngle) * (b.orbitDist || 100);
              if(b.isWave) b.pos = { ...owner.pos };
-         } else b.dead = true;
+         } else {
+             bullets.current.splice(i, 1);
+             continue;
+         }
       }
       if (!b.isOrbit && !b.isMine && !b.isPool) {
           b.pos.x += b.vel.x * dt;
@@ -1156,8 +1194,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
      const bodyColor = isPlayer ? COLOR_PALETTE.playerBody : COLOR_PALETTE.enemyBody;
      const darkColor = isPlayer ? COLOR_PALETTE.playerBodyDark : COLOR_PALETTE.enemyBodyDark;
      
-     // 1. Hands (Directional)
-     const angle = Math.atan2(e.vel.y, e.vel.x) || Math.PI/2;
+    // 1. Hands (Directional)
+    const aimVec = attackMode === 'MANUAL' && isPlayer ? getAimDir(e) : e.vel;
+    const angle = Math.atan2(aimVec.y, aimVec.x) || Math.PI/2;
      const handDist = e.radius * 0.8;
      const lx = e.pos.x + Math.cos(angle - 0.6) * handDist;
      const ly = e.pos.y + Math.sin(angle - 0.6) * handDist;

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { GameCanvas } from './components/GameCanvas';
-import { ClassType, Upgrade, Language } from './types';
+import { ClassType, Upgrade, Language, AttackMode } from './types';
 import { UPGRADES, CLASS_STATS, TEXTS, SKILL_DATA } from './constants';
 import { Sword, Zap, Crown, Play, Skull, Globe, Target as TargetIcon } from 'lucide-react';
 
@@ -12,6 +12,7 @@ export default function App() {
   const [upgradeOptions, setUpgradeOptions] = useState<Upgrade[]>([]);
   const [gameResult, setGameResult] = useState<{ win: boolean, stats?: any } | null>(null);
   const [lang, setLang] = useState<Language>('zh');
+  const [attackMode, setAttackMode] = useState<AttackMode>('AUTO');
 
   const t = TEXTS[lang];
 
@@ -89,7 +90,7 @@ export default function App() {
             </h1>
             <p className="text-slate-400 mb-12 text-xl tracking-[0.2em] uppercase font-bold">{t.subtitle}</p>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
               {[ClassType.WARRIOR, ClassType.MAGE, ClassType.RANGER].map((c) => (
                 <button
                   key={c}
@@ -116,12 +117,35 @@ export default function App() {
               ))}
             </div>
 
-            <button 
-              onClick={startGame}
-              className="w-full py-6 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-3xl rounded-2xl shadow-[0_10px_40px_rgba(8,145,178,0.4)] transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-4 tracking-widest uppercase border-t border-cyan-400/30 cursor-pointer"
-            >
-              <Play fill="currentColor" size={32} /> {t.enterBattle}
-            </button>
+            <div className="w-full mb-12">
+              <div className="flex items-center justify-between bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+                <div className="text-left">
+                  <div className="text-slate-300 font-bold text-lg">{lang === 'zh' ? '攻击模式' : 'Attack Mode'}</div>
+                  <div className="text-slate-400 text-sm mt-1">{lang === 'zh' ? '自动为默认；主动跟随鼠标方向' : 'Auto is default; Manual follows mouse direction'}</div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setAttackMode('AUTO')}
+                    className={`px-4 py-2 rounded-full border text-sm font-bold ${attackMode === 'AUTO' ? 'bg-cyan-600 text-white border-cyan-500' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'}`}
+                  >
+                    {lang === 'zh' ? '自动攻击模式（默认）' : 'Auto Attack (Default)'}
+                  </button>
+                  <button
+                    onClick={() => setAttackMode('MANUAL')}
+                    className={`px-4 py-2 rounded-full border text-sm font-bold ${attackMode === 'MANUAL' ? 'bg-yellow-600 text-black border-yellow-500' : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'}`}
+                  >
+                    {lang === 'zh' ? '主动攻击模式' : 'Manual Attack'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+           <button 
+             onClick={startGame}
+             className="w-full py-6 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black text-3xl rounded-2xl shadow-[0_10px_40px_rgba(8,145,178,0.4)] transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-4 tracking-widest uppercase border-t border-cyan-400/30 cursor-pointer"
+           >
+             <Play fill="currentColor" size={32} /> {t.enterBattle}
+           </button>
           </div>
         </div>
       )}
@@ -136,6 +160,7 @@ export default function App() {
              isPaused={isPaused}
              language={lang}
              upgradeQueue={0}
+             attackMode={attackMode}
            />
            
            {/* Level Up Modal */}

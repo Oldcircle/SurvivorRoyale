@@ -1,5 +1,6 @@
 
 export type Language = 'en' | 'zh';
+export type AttackMode = 'AUTO' | 'MANUAL';
 
 export interface LocalizedString {
   en: string;
